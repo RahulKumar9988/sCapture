@@ -45,7 +45,7 @@ export default function Home() {
       </main>
 
       <footer className="absolute bottom-8 text-neutral-600 text-sm">
-        Video Hosting via Cloudflare R2
+        Developed By <a href="https://rj-beryl.vercel.app/">Rahul_Kumar</a>
       </footer>
     </div>
   );
