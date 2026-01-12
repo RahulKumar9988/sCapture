@@ -68,10 +68,4 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Allow larger file uploads on Vercel (up to 50MB presumably, or standard serverless limit)
-// Note: In App Router, we usually don't need 'config.api.bodyParser = false' like Pages Router.
-// But Vercel has a hard 4.5MB limit for Serverless Functions unless we use specific configuration or stream.
-// Since we are reading the whole body into memory (req.formData()), we are bound by RAM limits.
-// For larger files, we should ideally use Presigned URLs, but for this fix, we will keep it simple.
-// Note: To handle large files on Vercel (>4.5MB), use Presigned URLs (Client->S3).
-// The current approach (Client->Server->S3) is limited by Vercel Serverless Function payload limits.
+

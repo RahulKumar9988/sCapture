@@ -30,9 +30,13 @@ export async function GET(
 
   try {
     // 2. Fetch stream from R2/Supabase
+    // Handle Range Requests for Seeking (Crucial for video playback)
+    const range = request.headers.get('range');
+    
     const command = new GetObjectCommand({
       Bucket: R2_BUCKET_NAME,
       Key: video.filename,
+      Range: range || undefined, // Pass the range header if present
     });
     
     // AWS SDK v3 returns a readable stream in Body
@@ -43,7 +47,6 @@ export async function GET(
     }
 
     // 3. Convert AWS stream to Web Stream for Next.js
-    // This looks complex but basically pipes the node stream to the response
     const webStream = response.Body.transformToWebStream();
 
     const headers = new Headers();
@@ -53,8 +56,19 @@ export async function GET(
     // Crucial: Set Cross-Origin headers so the COOP/COEP browser doesn't block it
     headers.set('Cross-Origin-Resource-Policy', 'cross-origin');
     
+    // Pass specific headers for Range requests
+    if (response.ContentRange) {
+        headers.set('Content-Range', response.ContentRange);
+    }
+    if (response.AcceptRanges) {
+        headers.set('Accept-Ranges', response.AcceptRanges);
+    }
+    
+    // Return 206 if it was a partial content response (which it usually is with Range)
+    const status = range && response.ContentRange ? 206 : 200;
+
     return new NextResponse(webStream, { 
-        status: 200, 
+        status, 
         headers 
     });
 

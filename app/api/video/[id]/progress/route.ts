@@ -12,26 +12,21 @@ export async function POST(
     
     if (isNaN(percent)) return NextResponse.json({ error: 'Invalid percentage' }, { status: 400 });
 
-    // Update running average (simplified)
-    // We assume 'views' tracks the number of samples.
-    // Logic: NewAvg = ((OldAvg * (Views-1)) + NewVal) / Views
-    // But since we increment views on load, 'views' is already N.
-    // So ((OldAvg * (Views-1)) + NewVal) / Views
+    // Analytics Logic with Supabase (Fetch -> Calc -> Update)
+    const { supabase } = await import('@/lib/db');
+    const { data: video } = await supabase.from('videos').select('views, completion_rate').eq('id', id).single();
     
-    // Simplified: For Supabase MVP, avoiding complex math update via simple client query.
-    // If you want to track this, use a separate table 'video_progress' and aggregate it.
-    // For now, disabling the direct update to main table to prevent errors.
+    if (video) {
+        const views = Math.max(video.views || 1, 1);
+        const oldRate = video.completion_rate || 0;
+        // Running Average: ((Old * (N-1)) + New) / N
+        // Since views is usually already incremented by the View API on load, we treat 'views' as N.
+        const newRate = ((oldRate * (views - 1)) + percent) / views;
+        
+        await supabase.from('videos').update({ completion_rate: newRate }).eq('id', id);
+    }
     
-    /* 
-    const stmt = db.prepare(`
-       UPDATE videos 
-       SET completion_rate = ((completion_rate * (views - 1)) + ?) / MAX(views, 1)
-       WHERE id = ?
-     `);
-    stmt.run(percent, id);
-    */
-    
-    return NextResponse.json({ success: true, warning: "Progress tracking disabled in MVP" });
+    return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ error: 'Internal Error' }, { status: 500 });
   }

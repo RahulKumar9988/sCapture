@@ -16,9 +16,13 @@ export async function POST(
     const { error } = await supabase.rpc('increment_video_view', { video_id: id });
     
     if (error) {
-        // Fallback or log. If function doesn't exist, this fails.
-        // If it fails, let's just ignore for now or log it.
-        console.warn('View increment failed (Function might be missing):', error.message);
+        console.warn('View RPC failed, falling back to manual update:', error.message);
+        // Fallback: Get current views -> Update
+        // Note: Not atomic, but fine for MVP
+        const { data } = await supabase.from('videos').select('views').eq('id', id).single();
+        if (data) {
+            await supabase.from('videos').update({ views: (data.views || 0) + 1 }).eq('id', id);
+        }
     }
     
     return NextResponse.json({ success: true });
