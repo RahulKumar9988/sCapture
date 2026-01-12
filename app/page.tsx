@@ -34,7 +34,7 @@ export default function Home() {
             <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </Link>
           <a
-            href="https://github.com"
+            href="https://github.com/RahulKumar9988/sCapture"
             target="_blank"
             rel="noopener noreferrer" 
             className="px-8 py-4 bg-neutral-900 text-white border border-neutral-800 rounded-full font-bold text-lg hover:bg-neutral-800 transition-all"
