@@ -20,10 +20,19 @@ export async function POST(
         const views = Math.max(video.views || 1, 1);
         const oldRate = video.completion_rate || 0;
         // Running Average: ((Old * (N-1)) + New) / N
-        // Since views is usually already incremented by the View API on load, we treat 'views' as N.
         const newRate = ((oldRate * (views - 1)) + percent) / views;
         
-        await supabase.from('videos').update({ completion_rate: newRate }).eq('id', id);
+        console.log(`Updating progress for ${id}: ${percent}% (Old: ${oldRate}%, New: ${newRate}%)`);
+
+        const { error } = await supabase.from('videos').update({ completion_rate: newRate }).eq('id', id);
+        
+        if (error) {
+            console.error('Progress Update Failed (RLS?):', error.message);
+        } else {
+            console.log('Progress updated successfully.');
+        }
+    } else {
+        console.warn('Video not found for progress update:', id);
     }
     
     return NextResponse.json({ success: true });

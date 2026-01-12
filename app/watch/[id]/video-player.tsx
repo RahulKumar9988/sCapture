@@ -22,10 +22,13 @@ export default function VideoPlayer({ videoId, src, poster }: VideoPlayerProps) 
   }, [videoId]);
 
   const reportProgress = (pct: number) => {
-    if (pct > maxProgress.current) {
-      maxProgress.current = pct;
+    // Allow sending if it's the current max
+    if (pct >= maxProgress.current) {
+        maxProgress.current = pct; // Ensure it's set
+
       // Only report if significantly higher or 100%
       // For MVP, reporting only on pause/end to avoid spam
+      console.log('Reporting progress:', pct);
       fetch(`/api/video/${videoId}/progress`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
