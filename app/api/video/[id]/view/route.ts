@@ -21,7 +21,10 @@ export async function POST(
         // Note: Not atomic, but fine for MVP
         const { data } = await supabase.from('videos').select('views').eq('id', id).single();
         if (data) {
-            await supabase.from('videos').update({ views: (data.views || 0) + 1 }).eq('id', id);
+            const { error: updateError } = await supabase.from('videos').update({ views: (data.views || 0) + 1 }).eq('id', id);
+            if (updateError) {
+                console.error('Manual View Update Failed (Likely RLS permission issue):', updateError.message);
+            }
         }
     }
     

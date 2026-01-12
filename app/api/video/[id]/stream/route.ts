@@ -51,10 +51,14 @@ export async function GET(
 
     const headers = new Headers();
     headers.set('Content-Type', response.ContentType || 'video/mp4');
-    headers.set('Content-Length', response.ContentLength?.toString() || '');
+    
+    if (response.ContentLength) {
+        headers.set('Content-Length', response.ContentLength.toString());
+    }
     
     // Crucial: Set Cross-Origin headers so the COOP/COEP browser doesn't block it
     headers.set('Cross-Origin-Resource-Policy', 'cross-origin');
+    headers.set('Accept-Ranges', 'bytes'); // Explicitly advertise we support ranges
     
     // Pass specific headers for Range requests
     if (response.ContentRange) {
