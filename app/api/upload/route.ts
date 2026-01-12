@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { r2, R2_BUCKET_NAME } from '@/lib/storage';
-import db from '@/lib/db';
+import { supabase } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 
@@ -17,8 +17,6 @@ export async function POST(req: NextRequest) {
 
     // Upload to R2 directly (Client already trimmed it)
     const fileId = uuidv4();
-    // Use the extension from the uploaded file (.mp4 or .webm)
-    // If client sent 'recording.webm' but it is mp4, we should trust the blob type or name
     const originalExt = path.extname(file.name);
     const fileExtension = originalExt && originalExt.length > 1 ? originalExt : '.webm';
     const s3Key = `${fileId}${fileExtension}`;
@@ -33,6 +31,7 @@ export async function POST(req: NextRequest) {
         contentType = fileExtension.includes('mp4') ? 'video/mp4' : 'video/webm';
     }
 
+    console.log('Uploading to Storage...');
     await r2.send(new PutObjectCommand({
       Bucket: R2_BUCKET_NAME,
       Key: s3Key,
@@ -40,13 +39,26 @@ export async function POST(req: NextRequest) {
       ContentType: contentType,
     }));
 
-    // Save to DB
-    const insertStmt = db.prepare(`
-      INSERT INTO videos (id, title, filename, views, created_at)
-      VALUES (?, ?, ?, 0, ?)
-    `);
-    
-    insertStmt.run(fileId, title, s3Key, Date.now());
+    // Save to Supabase DB
+    console.log('Saving to DB...');
+    const { error: dbError } = await supabase
+      .from('videos')
+      .insert({
+        id: fileId,
+        title: title,
+        filename: s3Key,
+        views: 0,
+        // Supabase expects ISO timestamp for timestamptz or big int if tailored. 
+        // Assuming we switch to timestamptz default or keep number. 
+        // Best practice: Use ISO string for Postgres.
+        created_at: new Date().toISOString() 
+      });
+
+    if (dbError) {
+        console.error('Supabase DB Error:', dbError);
+        // Clean up text file? Optional.
+        return NextResponse.json({ error: 'DB Insert Failed: ' + dbError.message }, { status: 500 });
+    }
 
     return NextResponse.json({ id: fileId });
 

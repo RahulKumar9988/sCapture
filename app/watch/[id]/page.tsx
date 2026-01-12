@@ -1,5 +1,5 @@
 import React from 'react';
-import db from '@/lib/db';
+import { supabase } from '@/lib/db';
 import { r2, R2_BUCKET_NAME, R2_PUBLIC_URL } from '@/lib/storage';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -8,8 +8,14 @@ import { Eye, Clock, Calendar } from 'lucide-react';
 import VideoPlayer from './video-player';
 
 async function getVideo(id: string) {
-  const stmt = db.prepare('SELECT * FROM videos WHERE id = ?');
-  return stmt.get(id) as any;
+  const { data, error } = await supabase
+    .from('videos')
+    .select('*')
+    .eq('id', id)
+    .single();
+    
+  if (error || !data) return null;
+  return data;
 }
 
 export default async function WatchPage({ params }: { params: Promise<{ id: string }> }) {

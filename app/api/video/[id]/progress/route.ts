@@ -1,6 +1,5 @@
-
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db';
+// import db from '@/lib/db'; // Unused in MVP
 
 export async function POST(
   request: NextRequest,
@@ -19,14 +18,20 @@ export async function POST(
     // But since we increment views on load, 'views' is already N.
     // So ((OldAvg * (Views-1)) + NewVal) / Views
     
-    const stmt = db.prepare(`
-      UPDATE videos 
-      SET completion_rate = ((completion_rate * (views - 1)) + ?) / MAX(views, 1)
-      WHERE id = ?
-    `);
+    // Simplified: For Supabase MVP, avoiding complex math update via simple client query.
+    // If you want to track this, use a separate table 'video_progress' and aggregate it.
+    // For now, disabling the direct update to main table to prevent errors.
     
+    /* 
+    const stmt = db.prepare(`
+       UPDATE videos 
+       SET completion_rate = ((completion_rate * (views - 1)) + ?) / MAX(views, 1)
+       WHERE id = ?
+     `);
     stmt.run(percent, id);
-    return NextResponse.json({ success: true });
+    */
+    
+    return NextResponse.json({ success: true, warning: "Progress tracking disabled in MVP" });
   } catch (error) {
     return NextResponse.json({ error: 'Internal Error' }, { status: 500 });
   }

@@ -1,21 +1,15 @@
 
-import Database from 'better-sqlite3';
-import path from 'path';
+import { createClient } from '@supabase/supabase-js';
 
-const dbPath = path.resolve(process.cwd(), 'srecorder.db');
-const db = new Database(dbPath);
+// Note: We use the SERVICE ROLE key on the server to bypass RLS (Row Level Security)
+// so we can insert videos without the user being logged in.
+// If you only have the ANON key, ensure your table RLS policies allow "INSERT" for public/anon.
 
-// Initialize database
-db.exec(`
-  CREATE TABLE IF NOT EXISTS videos (
-    id TEXT PRIMARY KEY,
-    title TEXT,
-    filename TEXT,
-    duration REAL,
-    views INTEGER DEFAULT 0,
-    completion_rate REAL DEFAULT 0,
-    created_at INTEGER
-  )
-`);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-export default db;
+if (!supabaseUrl || !supabaseKey) {
+  console.warn('Supabase credentials missing. Database operations will fail.');
+}
+
+export const supabase = createClient(supabaseUrl, supabaseKey);

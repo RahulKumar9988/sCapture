@@ -16,9 +16,13 @@ export async function GET(
   // Importing DB here might be slow, but let's try assuming the ID is part of the filename
   // Ideally, we pass the full filename or look it up.
   // Let's do a quick DB lookup.
-  const { default: db } = await import('@/lib/db');
-  const stmt = db.prepare('SELECT filename FROM videos WHERE id = ?');
-  const video = stmt.get(id) as { filename: string } | undefined;
+  // 1. Get Video Metadata from DB 
+  const { supabase } = await import('@/lib/db');
+  const { data: video } = await supabase
+    .from('videos')
+    .select('filename')
+    .eq('id', id)
+    .single();
 
   if (!video) {
     return new NextResponse('Video not found', { status: 404 });
