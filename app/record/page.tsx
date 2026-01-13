@@ -188,13 +188,16 @@ export default function RecordPage() {
          const ffmpeg = await loadFfmpeg();
          await ffmpeg.writeFile('input.webm', await fetchFile(videoBlob));
          
+         // Calculate duration properly
+         const durationToKeep = trimEnd - trimStart;
+         
          await ffmpeg.exec([
              '-i', 'input.webm', 
              '-ss', trimStart.toString(), 
-             '-to', trimEnd.toString(),
+             '-t', durationToKeep.toString(), // Use -t (duration) instead of -to for safer cutting
              '-c:v', 'libx264',
              '-crf', '28',
-             '-preset', 'veryfast',
+             '-preset', 'ultrafast', // Switch to ultrafast for speed
              '-c:a', 'aac',
              'output.mp4'
          ]);
