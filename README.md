@@ -156,27 +156,14 @@ sCapture/
 4. View count increments automatically
 5. Completion rate tracked on pause/end
 
-## 🚢 Deployment
-
-### Deploy to Vercel
-
-1. Push your code to GitHub
-2. Go to [vercel.com](https://vercel.com)
-3. Import your repository
-4. Add environment variables from `.env.local`
-5. Deploy!
-
-### Environment Variables for Production
-
-Make sure to set all variables from `.env.local` in Vercel's environment settings.
-
 ## 📄 License
 
-This project is MIT License.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+> **Note:** This project was created as an assignment/portfolio piece. Feel free to use it for learning, evaluation, or reference purposes.
 
 ## 🙏 Acknowledgments
 
-- Built with [Next.js](https://nextjs.org)
 - Powered by [Supabase](https://supabase.com)
 - UI components from [Lucide Icons](https://lucide.dev)
 - Toast notifications by [Sonner](https://sonner.emilkowal.ski)
