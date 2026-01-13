@@ -53,7 +53,7 @@ npm install
 #### B. Run Database Migration
 
 1. Go to **SQL Editor** in Supabase Dashboard
-2. Copy the contents of `supabase-migration-trim.sql`
+2. Copy the contents of `supabase-migration-trim.sql` (contact me for complete migration file)
 3. Paste and run the SQL script
 4. This creates the `videos` table with all required columns and policies
 
