@@ -180,14 +180,92 @@ export default function RecordPage() {
 
   const handleUpload = async () => {
     if (!videoBlob) return;
-    setStatus('uploading');
     
     let blobToUpload = videoBlob;
 
-    // Metadata-based trimming (instant, no processing!)
-    // We'll save trim points to the database and the player will handle them
+    // Optimized Canvas trimming (if needed)
+    if (trimStart > 0 || trimEnd < duration) {
+       setIsProcessing(true);
+       setStatus('uploading');
+       
+       try {
+         // Create video element
+         const video = document.createElement('video');
+         video.src = URL.createObjectURL(videoBlob);
+         video.muted = true;
+         
+         await new Promise((resolve) => {
+           video.onloadedmetadata = resolve;
+         });
+         
+         // Create canvas with lower resolution for faster processing
+         const canvas = document.createElement('canvas');
+         const scale = 0.75; // 75% resolution for speed
+         canvas.width = video.videoWidth * scale;
+         canvas.height = video.videoHeight * scale;
+         const ctx = canvas.getContext('2d', { alpha: false })!;
+         
+         // Capture stream at lower FPS
+         const stream = canvas.captureStream(15); // 15 FPS instead of 30
+         
+         // Set up MediaRecorder with optimized settings
+         const recorder = new MediaRecorder(stream, {
+           mimeType: 'video/webm;codecs=vp8', // VP8 is faster than VP9
+           videoBitsPerSecond: 5000000, // 5 Mbps - balance of quality/speed
+         });
+         
+         const chunks: Blob[] = [];
+         recorder.ondataavailable = (e) => {
+           if (e.data.size > 0) chunks.push(e.data);
+         };
+         
+         // Start recording
+         recorder.start();
+         video.currentTime = trimStart;
+         await video.play();
+         
+         let frameCount = 0;
+         const totalFrames = Math.ceil((trimEnd - trimStart) * 15); // 15 FPS
+         
+         // Optimized frame drawing with progress
+         const drawFrame = () => {
+           if (video.currentTime >= trimEnd || video.paused) {
+             recorder.stop();
+             video.pause();
+             URL.revokeObjectURL(video.src);
+             return;
+           }
+           
+           // Draw frame
+           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+           
+           // Update progress
+           frameCount++;
+           const progress = Math.min((frameCount / totalFrames) * 100, 99);
+           setUploadProgress(progress);
+           
+           // Use requestAnimationFrame for smooth rendering
+           requestAnimationFrame(drawFrame);
+         };
+         
+         drawFrame();
+         
+         // Wait for recording to finish
+         blobToUpload = await new Promise<Blob>((resolve) => {
+           recorder.onstop = () => {
+             setUploadProgress(100);
+             resolve(new Blob(chunks, { type: 'video/webm' }));
+           };
+         });
+         
+       } catch (error) {
+           console.error("Trimming error:", error);
+           toast.error('Trimming failed', { description: 'Uploading original video' });
+           blobToUpload = videoBlob;
+       }
+    }
 
-    // New Direct Upload Flow (Bypasses Server Limits)
+    setStatus('uploading');
     try {
         const ext = blobToUpload.type.includes('mp4') ? '.mp4' : '.webm';
         
@@ -365,7 +443,23 @@ export default function RecordPage() {
           <div className="text-center space-y-4">
             <div className="w-16 h-16 border-4 border-neutral-800 border-t-blue-500 rounded-full animate-spin mx-auto" />
             <p className="text-lg">{isProcessing ? 'Trimming Video...' : 'Uploading...'}</p>
-            <p className="text-sm text-neutral-500">Larger videos may take a moment.</p>
+            
+            {/* Progress bar */}
+            {uploadProgress > 0 && uploadProgress < 100 && (
+              <div className="max-w-md mx-auto">
+                <div className="w-full bg-neutral-800 rounded-full h-2 overflow-hidden">
+                  <div 
+                    className="bg-blue-500 h-full transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+                <p className="text-sm text-neutral-500 mt-2">{Math.round(uploadProgress)}% complete</p>
+              </div>
+            )}
+            
+            <p className="text-sm text-neutral-500">
+              {isProcessing ? 'Processing video in browser...' : 'Larger videos may take a moment.'}
+            </p>
           </div>
         )}
 
