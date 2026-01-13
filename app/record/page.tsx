@@ -186,61 +186,84 @@ export default function RecordPage() {
        setIsProcessing(true);
        try {
          const ffmpeg = await loadFfmpeg();
-         // Explicit static import string
-
-         
          await ffmpeg.writeFile('input.webm', await fetchFile(videoBlob));
          
-         // -c copy is fast but effectively keyframe dependent. 
-         // For precise cuts re-encoding might be needed, but trying copy first for speed.
-         // If copy fails or desyncs, remove '-c copy' to re-encode (slower).
          await ffmpeg.exec([
              '-i', 'input.webm', 
              '-ss', trimStart.toString(), 
              '-to', trimEnd.toString(),
-             '-c:v', 'libx264',    // H.264 is efficient and universally compatible
-             '-crf', '28',         // CRF 28 is lower quality/smaller size (Standard is 23)
-             '-preset', 'veryfast',// Fast encoding
-             '-c:a', 'aac',        // AAC audio for MP4
-             'output.mp4'          // Switch to MP4 container
+             '-c:v', 'libx264',
+             '-crf', '28',
+             '-preset', 'veryfast',
+             '-c:a', 'aac',
+             'output.mp4'
          ]);
          
          const data = await ffmpeg.readFile('output.mp4');
          blobToUpload = new Blob([data], { type: 'video/mp4' });
          
-         // Cleanup
          await ffmpeg.deleteFile('input.webm');
          await ffmpeg.deleteFile('output.mp4');
          
        } catch (error) {
            console.error("FFmpeg error:", error);
            alert("Local trim failed, uploading original.");
+           // Fallback to original blob
+           blobToUpload = videoBlob;
        } finally {
            setIsProcessing(false);
        }
     }
 
-    const formData = new FormData();
-    const ext = blobToUpload.type === 'video/mp4' ? 'mp4' : 'webm';
-    formData.append('file', blobToUpload, `recording.${ext}`);
-    formData.append('title', `Screen Recording ${new Date().toLocaleString()}`);
-    // No longer sending start/endTime to server
-
+    // New Direct Upload Flow (Bypasses Server Limits)
     try {
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      
-      if (!res.ok) throw new Error('Upload failed');
-      
-      const data = await res.json();
-      router.push(`/watch/${data.id}`);
-      
+        const ext = blobToUpload.type.includes('mp4') ? '.mp4' : '.webm';
+        
+        // 1. Get Presigned URL
+        const presignRes = await fetch('/api/upload/presigned', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                extension: ext,
+                contentType: blobToUpload.type 
+            })
+        });
+        
+        if (!presignRes.ok) throw new Error('Failed to get upload URL');
+        const { uploadUrl, fileId, filename } = await presignRes.json();
+        
+        // 2. Upload to Storage (Directly)
+        console.log('Uploading directly to Storage...', uploadUrl);
+        const uploadRes = await fetch(uploadUrl, {
+            method: 'PUT',
+            body: blobToUpload,
+            headers: {
+                'Content-Type': blobToUpload.type
+            }
+        });
+        
+        if (!uploadRes.ok) throw new Error('Direct upload failed');
+        
+        // 3. Save Metadata to DB
+        const saveRes = await fetch('/api/video/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id: fileId,
+                title: `Screen Recording ${new Date().toLocaleString()}`,
+                filename: filename
+            })
+        });
+        
+        if (!saveRes.ok) throw new Error('Failed to save video data');
+        
+        // Success!
+        router.push(`/watch/${fileId}`);
+        
     } catch (err) {
       console.error(err);
       setStatus('preview');
-      alert('Upload failed. Please try again.');
+      alert('Upload failed: ' + (err as Error).message);
     }
   };
 
