@@ -57,6 +57,12 @@ npm install
 3. Paste and run the SQL script
 4. This creates the `videos` table with all required columns and policies
 
+> **Need the migration file?** If you don't have `supabase-migration-trim.sql`, please contact me:
+>
+> - 💬 GitHub Discussions: [Open a discussion](https://github.com/RahulKumar9988/sCapture/discussions)
+> - 📧 Email: rahulkumar9988@example.com
+> - 🐛 Issues: [Report an issue](https://github.com/RahulKumar9988/sCapture/issues)
+
 #### C. Set Up Storage
 
 1. Go to **Storage** in Supabase Dashboard
