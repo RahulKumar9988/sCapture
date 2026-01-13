@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { Mic, Video, Square, Play, Scissors, Upload, Share2, StopCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import TrimSlider from './trim-slider';
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { toBlobURL, fetchFile } from '@ffmpeg/util';
 
 export default function RecordPage() {
   const router = useRouter();
@@ -157,14 +159,13 @@ export default function RecordPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const ffmpegRef = useRef<any>(null);
 
+
+
   const loadFfmpeg = async () => {
       if (ffmpegRef.current) return ffmpegRef.current;
-      const { FFmpeg } = await import('@ffmpeg/ffmpeg');
-      const { toBlobURL } = await import('@ffmpeg/util');
       const ffmpeg = new FFmpeg();
       
-      // Load ffmpeg.wasm from unpkg/CDN or local public folder if setup
-      // Using unpkg is easiest for MVP
+      // Load ffmpeg.wasm from unpkg/CDN 
       const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
       await ffmpeg.load({
           coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
@@ -186,7 +187,7 @@ export default function RecordPage() {
        try {
          const ffmpeg = await loadFfmpeg();
          // Explicit static import string
-         const { fetchFile } = await import('@ffmpeg/util');
+
          
          await ffmpeg.writeFile('input.webm', await fetchFile(videoBlob));
          
