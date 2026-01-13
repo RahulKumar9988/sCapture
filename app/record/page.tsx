@@ -458,7 +458,7 @@ export default function RecordPage() {
             )}
             
             <p className="text-sm text-neutral-500">
-              {isProcessing ? 'Processing video in browser...' : 'Larger videos may take a moment.'}
+              {isProcessing ? 'Processing video in browser Do not close the tab...' : 'Larger videos may take a moment.'}
             </p>
           </div>
         )}
