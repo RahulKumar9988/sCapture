@@ -6,8 +6,8 @@ import { useRouter } from 'next/navigation';
 import { Mic, Video, Square, Play, Scissors, Upload, Share2, StopCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import TrimSlider from './trim-slider';
-import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { toBlobURL, fetchFile } from '@ffmpeg/util';
+import { Toaster, toast } from 'sonner';
+
 
 
 export default function RecordPage() {
@@ -79,7 +79,9 @@ export default function RecordPage() {
       ]);
 
       const recorder = new MediaRecorder(combinedStream, {
-        mimeType: 'video/webm; codecs=vp9'
+        mimeType: 'video/webm; codecs=vp9',
+        videoBitsPerSecond: 8000000, // 8 Mbps for high quality (was default ~2.5 Mbps)
+        audioBitsPerSecond: 128000   // 128 kbps for audio
       });
 
       recorder.ondataavailable = (e) => {
@@ -112,7 +114,7 @@ export default function RecordPage() {
         if (elapsed >= 65) {
             recorder.stop();
             setStatus('preview');
-            alert("Recording reached 65 second limit.");
+            toast.warning('Recording limit reached', { description: '65 second maximum recording time' });
         }
       }, 1000);
 
@@ -162,6 +164,8 @@ export default function RecordPage() {
   const loadFfmpeg = async () => {
       if (ffmpegRef.current) return ffmpegRef.current;
       
+      const { FFmpeg, toBlobURL } = await import('@/lib/ffmpeg-loader');
+      
       const ffmpeg = new FFmpeg();
       
       // Load ffmpeg.wasm from unpkg/CDN 
@@ -180,43 +184,8 @@ export default function RecordPage() {
     
     let blobToUpload = videoBlob;
 
-    // Client-side Trim using FFmpeg.wasm
-    if (trimStart > 0 || trimEnd < duration) {
-       setIsProcessing(true);
-       try {
-         const ffmpeg = await loadFfmpeg();
-
-         await ffmpeg.writeFile('input.webm', await fetchFile(videoBlob));
-         
-         // Calculate duration properly
-         const durationToKeep = trimEnd - trimStart;
-         
-         await ffmpeg.exec([
-             '-i', 'input.webm', 
-             '-ss', trimStart.toString(), 
-             '-t', durationToKeep.toString(), // Use -t (duration) instead of -to for safer cutting
-             '-c:v', 'libx264',
-             '-crf', '28',
-             '-preset', 'ultrafast', // Switch to ultrafast for speed
-             '-c:a', 'aac',
-             'output.mp4'
-         ]);
-         
-         const data = await ffmpeg.readFile('output.mp4');
-         blobToUpload = new Blob([data], { type: 'video/mp4' });
-         
-         await ffmpeg.deleteFile('input.webm');
-         await ffmpeg.deleteFile('output.mp4');
-         
-       } catch (error) {
-           console.error("FFmpeg error:", error);
-           alert("Local trim failed, uploading original.");
-           // Fallback to original blob
-           blobToUpload = videoBlob;
-       } finally {
-           setIsProcessing(false);
-       }
-    }
+    // Metadata-based trimming (instant, no processing!)
+    // We'll save trim points to the database and the player will handle them
 
     // New Direct Upload Flow (Bypasses Server Limits)
     try {
@@ -247,14 +216,16 @@ export default function RecordPage() {
         
         if (!uploadRes.ok) throw new Error('Direct upload failed');
         
-        // 3. Save Metadata to DB
+        // 3. Save Metadata to DB (including trim points)
         const saveRes = await fetch('/api/video/create', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 id: fileId,
                 title: `Screen Recording ${new Date().toLocaleString()}`,
-                filename: filename
+                filename: filename,
+                trim_start: trimStart,
+                trim_end: trimEnd
             })
         });
         
@@ -266,12 +237,14 @@ export default function RecordPage() {
     } catch (err) {
       console.error(err);
       setStatus('preview');
-      alert('Upload failed: ' + (err as Error).message);
+      toast.error('Upload failed', { description: (err as Error).message });
     }
   };
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-white p-8 flex flex-col items-center">
+    <>
+      <Toaster position="top-right" richColors closeButton />
+      <div className="min-h-screen bg-neutral-950 text-white p-8 flex flex-col items-center">
       <header className="w-full max-w-4xl mb-12 flex justify-between items-center">
         <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
           SRecorder
@@ -285,7 +258,7 @@ export default function RecordPage() {
             <div className="p-12 rounded-3xl bg-neutral-900 border border-neutral-800 shadow-2xl">
               <button
                 onClick={startRecording}
-                className="group relative px-8 py-4 bg-red-600 hover:bg-red-500 rounded-full font-semibold text-lg transition-all transform hover:scale-105"
+                className="group relative px-8 py-4 bg-red-600 hover:bg-red-500 rounded-full font-semibold text-lg transition-all transform hover:scale-105 cursor-pointer"
               >
                 <div className="flex items-center gap-3">
                    <div className="w-4 h-4 rounded-full bg-white animate-pulse" />
@@ -311,7 +284,7 @@ export default function RecordPage() {
             </div>
             <button
               onClick={stopRecording}
-              className="px-8 py-3 bg-neutral-800 hover:bg-neutral-700 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 mx-auto"
+              className="px-8 py-3 bg-neutral-800 hover:bg-neutral-700 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 mx-auto cursor-pointer"
             >
               <Square className="w-5 h-5 fill-current" />
               Stop Recording
@@ -323,13 +296,42 @@ export default function RecordPage() {
           <div className="w-full bg-neutral-900 p-6 rounded-2xl border border-neutral-800 space-y-6">
             <h2 className="text-xl font-semibold">Preview & Edit</h2>
             
-            <video 
-              ref={videoPreviewRef}
-              src={videoUrl} 
-              controls 
-              className="w-full rounded-lg bg-black aspect-video"
-              onLoadedMetadata={handleLoadedMetadata}
-            />
+            <div className="relative">
+              <video 
+                ref={videoPreviewRef}
+                src={videoUrl} 
+                controls 
+                className="w-full rounded-lg bg-black aspect-video"
+                onLoadedMetadata={handleLoadedMetadata}
+              />
+              
+              {/* Trim markers overlay on video controls */}
+              {duration > 0 && (trimStart > 0 || trimEnd < duration) && (
+                <div className="absolute bottom-12 left-0 right-0 px-4 pointer-events-none">
+                  <div className="relative h-1 bg-transparent">
+                    {/* Start marker */}
+                    <div 
+                      className="absolute top-0 w-1 h-4 -mt-1.5 bg-green-500 rounded-full shadow-lg"
+                      style={{ left: `${(trimStart / duration) * 100}%` }}
+                    >
+                      <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-green-500 text-white text-xs px-2 py-0.5 rounded whitespace-nowrap">
+                        Start
+                      </div>
+                    </div>
+                    
+                    {/* End marker */}
+                    <div 
+                      className="absolute top-0 w-1 h-4 -mt-1.5 bg-red-500 rounded-full shadow-lg"
+                      style={{ left: `${(trimEnd / duration) * 100}%` }}
+                    >
+                      <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-red-500 text-white text-xs px-2 py-0.5 rounded whitespace-nowrap">
+                        End
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
 
             <div className="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
               <h3 className="text-sm font-medium text-neutral-400 mb-4">Trim Video</h3>
@@ -350,7 +352,7 @@ export default function RecordPage() {
             <div className="flex justify-end pt-4">
               <button
                 onClick={handleUpload}
-                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 rounded-lg font-semibold flex items-center gap-2 transition-all shadow-lg shadow-blue-500/20"
+                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 rounded-lg font-semibold flex items-center gap-2 transition-all shadow-lg shadow-blue-500/20 cursor-pointer"
               >
                 <Upload className="w-5 h-5" />
                 Process & Upload Video
@@ -369,5 +371,6 @@ export default function RecordPage() {
 
       </main>
     </div>
+    </>
   );
 }

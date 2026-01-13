@@ -5,7 +5,7 @@ import { supabase } from '@/lib/db';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id, title, filename } = body;
+    const { id, title, filename, trim_start, trim_end } = body;
 
     if (!id || !filename) {
         return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
@@ -19,6 +19,8 @@ export async function POST(req: NextRequest) {
         title: title || 'Untitled Recording',
         filename,
         views: 0,
+        trim_start: trim_start || 0,
+        trim_end: trim_end || null,
         created_at: new Date().toISOString() 
       });
 

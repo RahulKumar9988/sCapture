@@ -7,9 +7,11 @@ interface VideoPlayerProps {
   videoId: string;
   src: string;
   poster?: string;
+  trimStart?: number;
+  trimEnd?: number;
 }
 
-export default function VideoPlayer({ videoId, src, poster }: VideoPlayerProps) {
+export default function VideoPlayer({ videoId, src, poster, trimStart = 0, trimEnd }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const maxProgress = useRef(0);
   const sentView = useRef(false);
@@ -21,29 +23,51 @@ export default function VideoPlayer({ videoId, src, poster }: VideoPlayerProps) 
     }
   }, [videoId]);
 
-  const reportProgress = (pct: number) => {
-    // Allow sending if it's the current max
-    if (pct >= maxProgress.current) {
-        maxProgress.current = pct; // Ensure it's set
+  // Handle trim points
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
 
-      // Only report if significantly higher or 100%
-      // For MVP, reporting only on pause/end to avoid spam
+    const handleLoadedMetadata = () => {
+      // Seek to trim start point
+      if (trimStart > 0) {
+        video.currentTime = trimStart;
+      }
+    };
+
+    const handleTimeUpdate = () => {
+      // Stop at trim end point
+      if (trimEnd && video.currentTime >= trimEnd) {
+        video.pause();
+        video.currentTime = trimEnd;
+      }
+
+      // Track progress
+      const pct = (video.currentTime / video.duration) * 100;
+      if (pct > maxProgress.current) {
+        maxProgress.current = pct;
+      }
+    };
+
+    video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    video.addEventListener('timeupdate', handleTimeUpdate);
+
+    return () => {
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      video.removeEventListener('timeupdate', handleTimeUpdate);
+    };
+  }, [trimStart, trimEnd]);
+
+  const reportProgress = (pct: number) => {
+    if (pct >= maxProgress.current) {
+        maxProgress.current = pct;
+
       console.log('Reporting progress:', pct);
       fetch(`/api/video/${videoId}/progress`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ percentage: pct })
       }).catch(console.error);
-    }
-  };
-
-  const handleTimeUpdate = () => {
-    if (videoRef.current) {
-      const pct = (videoRef.current.currentTime / videoRef.current.duration) * 100;
-      if (pct > maxProgress.current) {
-        // Just track locally, report on pause/end
-        maxProgress.current = pct;
-      }
     }
   };
 
@@ -63,7 +87,6 @@ export default function VideoPlayer({ videoId, src, poster }: VideoPlayerProps) 
         poster={poster}
         controls
         className="w-full h-full"
-        onTimeUpdate={handleTimeUpdate}
         onPause={handlePause}
         onEnded={handleEnded}
       />

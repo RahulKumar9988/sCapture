@@ -34,6 +34,8 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
           videoId={id}
           src={videoUrl}
           poster="https://via.placeholder.com/1280x720/000000/FFFFFF?text=Loading+Video"
+          trimStart={video.trim_start || 0}
+          trimEnd={video.trim_end || undefined}
         />
 
         <div className="space-y-6">
