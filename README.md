@@ -1,36 +1,180 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🎥 sCapture - Screen Recording & Sharing Platform
 
-## Getting Started
+A modern, high-quality screen recording application with cloud storage, video trimming, and instant sharing capabilities.
 
-First, run the development server:
+## ✨ Features
+
+- 🎬 **High-Quality Recording** - 8 Mbps video, 128 kbps audio
+- ✂️ **Video Trimming** - Browser-based trimming with progress tracking
+- ☁️ **Cloud Storage** - Direct-to-cloud uploads via Supabase
+- 📊 **Analytics** - View counts and completion rate tracking
+- 🔗 **Instant Sharing** - Generate shareable links immediately
+- 🎨 **Modern UI** - Beautiful, responsive design with toast notifications
+- 🚀 **Fast Uploads** - Presigned URLs bypass server limits
+
+## 🛠️ Tech Stack
+
+- **Frontend**: Next.js 16, React, TypeScript, TailwindCSS
+- **Backend**: Next.js API Routes
+- **Database**: Supabase (PostgreSQL)
+- **Storage**: Supabase Storage (S3-compatible)
+- **Video Processing**: Canvas API + MediaRecorder
+- **Notifications**: Sonner (toast notifications)
+
+## 📋 Prerequisites
+
+- Node.js 18+ and npm
+- Supabase account ([supabase.com](https://supabase.com))
+- Vercel account (for deployment, optional)
+
+## 🚀 Setup Instructions
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/RahulKumar9988/sCapture.git
+cd sCapture
+```
+
+### 2. Install Dependencies
+
+```bash
+npm install
+```
+
+### 3. Set Up Supabase
+
+#### A. Create a Supabase Project
+
+1. Go to [supabase.com](https://supabase.com)
+2. Create a new project
+3. Wait for the database to initialize
+
+#### B. Run Database Migration
+
+1. Go to **SQL Editor** in Supabase Dashboard
+2. Copy the contents of `supabase-migration-trim.sql`
+3. Paste and run the SQL script
+4. This creates the `videos` table with all required columns and policies
+
+#### C. Set Up Storage
+
+1. Go to **Storage** in Supabase Dashboard
+2. Create a new bucket named `videos`
+3. Set bucket to **Public** (or configure RLS policies)
+
+#### D. Get S3 Credentials
+
+1. Go to **Project Settings** → **API**
+2. Copy your **Project URL** and **anon key**
+3. Go to **Storage** → **Settings** → **S3 Access Keys**
+4. Generate new S3 access keys
+
+### 4. Configure Environment Variables
+
+Create a `.env.local` file in the root directory:
+
+```env
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+
+# Supabase S3 Storage (for direct uploads)
+SUPABASE_S3_ENDPOINT=https://your-project.supabase.co/storage/v1/s3
+SUPABASE_ACCESS_KEY_ID=your-s3-access-key
+SUPABASE_SECRET_ACCESS_KEY=your-s3-secret-key
+SUPABASE_BUCKET_NAME=videos
+SUPABASE_REGION=us-east-1
+
+# Optional: App URL (for sharing links)
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
+
+⚠️ **Security Note**: Never commit `.env.local` to Git!
+
+### 5. Run the Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to see the app.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📁 Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+sCapture/
+├── app/
+│   ├── api/
+│   │   ├── upload/
+│   │   │   └── presigned/route.ts    # Generate presigned URLs
+│   │   └── video/
+│   │       ├── [id]/
+│   │       │   ├── stream/route.ts   # Video proxy
+│   │       │   ├── view/route.ts     # View counter
+│   │       │   └── progress/route.ts # Analytics
+│   │       └── create/route.ts       # Save video metadata
+│   ├── record/page.tsx               # Recording interface
+│   ├── watch/[id]/page.tsx           # Video player
+│   └── page.tsx                      # Landing page
+├── lib/
+│   ├── db.ts                         # Supabase client
+│   └── storage.ts                    # S3 client
+└── supabase-migration-trim.sql       # Database schema
+```
 
-## Learn More
+## 🎯 How It Works
 
-To learn more about Next.js, take a look at the following resources:
+### Recording Flow
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. User clicks "Start Recording"
+2. Browser captures screen + audio (MediaRecorder API)
+3. Video is recorded at 8 Mbps quality
+4. User can preview and trim the recording
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Upload Flow
 
-## Deploy on Vercel
+1. User clicks "Upload"
+2. If trimmed: Browser re-encodes video using Canvas API
+3. App requests presigned URL from `/api/upload/presigned`
+4. Video uploads directly to Supabase Storage (bypasses server)
+5. Metadata saved to database via `/api/video/create`
+6. User gets shareable link
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Playback Flow
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. User opens watch page
+2. Video streams via `/api/video/[id]/stream` (proxy)
+3. If trimmed: Player auto-seeks to `trim_start` and stops at `trim_end`
+4. View count increments automatically
+5. Completion rate tracked on pause/end
+
+## 🚢 Deployment
+
+### Deploy to Vercel
+
+1. Push your code to GitHub
+2. Go to [vercel.com](https://vercel.com)
+3. Import your repository
+4. Add environment variables from `.env.local`
+5. Deploy!
+
+### Environment Variables for Production
+
+Make sure to set all variables from `.env.local` in Vercel's environment settings.
+
+## 📄 License
+
+This project is MIT License.
+
+## 🙏 Acknowledgments
+
+- Built with [Next.js](https://nextjs.org)
+- Powered by [Supabase](https://supabase.com)
+- UI components from [Lucide Icons](https://lucide.dev)
+- Toast notifications by [Sonner](https://sonner.emilkowal.ski)
+
+---
+
+Made with ❤️ by [RahulKumar9988](https://github.com/RahulKumar9988)
