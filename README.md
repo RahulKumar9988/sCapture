@@ -60,7 +60,7 @@ npm install
 > **Need the migration file?** If you don't have `supabase-migration-trim.sql`, please contact me:
 >
 > - 💬 GitHub Discussions: [Open a discussion](https://github.com/RahulKumar9988/sCapture/discussions)
-> - 📧 Email: rahulkumar9988@example.com
+> - 📧 Email: rahulkrwhy000@gmail.com
 > - 🐛 Issues: [Report an issue](https://github.com/RahulKumar9988/sCapture/issues)
 
 #### C. Set Up Storage
