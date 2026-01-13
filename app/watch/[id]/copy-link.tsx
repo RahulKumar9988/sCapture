@@ -17,11 +17,11 @@ export default function CopyLink({ url }: { url: string }) {
   };
 
   return (
-    <div className="flex gap-2">
+    <div className="flex flex-col sm:flex-row gap-2">
       <input 
         readOnly 
         value={url} 
-        className="flex-1 bg-neutral-950 border border-neutral-800 rounded px-4 py-2 text-neutral-400 font-mono text-sm"
+        className="flex-1 bg-neutral-950 border border-neutral-800 rounded px-4 py-3 sm:py-2 text-neutral-400 font-mono text-sm w-full truncate"
       />
       <button 
         onClick={handleCopy}

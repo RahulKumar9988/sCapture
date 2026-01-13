@@ -9,6 +9,7 @@ import TrimSlider from './trim-slider';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { toBlobURL, fetchFile } from '@ffmpeg/util';
 
+
 export default function RecordPage() {
   const router = useRouter();
   const [status, setStatus] = useState<'idle' | 'recording' | 'preview' | 'uploading'>('idle');
@@ -155,14 +156,12 @@ export default function RecordPage() {
   };
 
   // Import FFmpeg types
-  // Note: We'll import dynamically to avoid SSR issues
   const [isProcessing, setIsProcessing] = useState(false);
   const ffmpegRef = useRef<any>(null);
 
-
-
   const loadFfmpeg = async () => {
       if (ffmpegRef.current) return ffmpegRef.current;
+      
       const ffmpeg = new FFmpeg();
       
       // Load ffmpeg.wasm from unpkg/CDN 
@@ -186,6 +185,7 @@ export default function RecordPage() {
        setIsProcessing(true);
        try {
          const ffmpeg = await loadFfmpeg();
+
          await ffmpeg.writeFile('input.webm', await fetchFile(videoBlob));
          
          // Calculate duration properly
